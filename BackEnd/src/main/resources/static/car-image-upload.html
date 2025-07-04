@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Car Image Upload</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"],
+        input[type="file"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        .image-preview {
+            margin-top: 20px;
+            max-width: 100%;
+        }
+        .image-preview img {
+            max-width: 100%;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Car Image Upload</h1>
+    
+    <div class="form-group">
+        <label for="carId">Car ID:</label>
+        <input type="text" id="carId" placeholder="Enter car ID">
+    </div>
+    
+    <div class="form-group">
+        <label for="carImage">Select Image:</label>
+        <input type="file" id="carImage" accept="image/*">
+    </div>
+    
+    <button onclick="uploadImage()">Upload Image</button>
+    
+    <div id="response"></div>
+    
+    <div class="image-preview" id="imagePreview"></div>
+    
+    <script>
+        function uploadImage() {
+            const carId = document.getElementById('carId').value;
+            const fileInput = document.getElementById('carImage');
+            const responseDiv = document.getElementById('response');
+            const imagePreview = document.getElementById('imagePreview');
+            
+            if (!carId) {
+                responseDiv.textContent = 'Please enter a car ID';
+                return;
+            }
+            
+            if (!fileInput.files || fileInput.files.length === 0) {
+                responseDiv.textContent = 'Please select an image file';
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            responseDiv.textContent = 'Uploading...';
+            
+            fetch(`/api/cars/${carId}/upload-image`, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                responseDiv.textContent = JSON.stringify(data, null, 2);
+                
+                // Display the uploaded image
+                imagePreview.innerHTML = `
+                    <h3>Uploaded Image:</h3>
+                    <img src="${data.fileDownloadUri}" alt="Car Image">
+                `;
+            })
+            .catch(error => {
+                responseDiv.textContent = `Error: ${error.message}`;
+            });
+        }
+    </script>
+</body>
+</html>

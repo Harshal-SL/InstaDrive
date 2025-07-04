@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Booking History Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 {
+            color: #333;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        #response {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            white-space: pre-wrap;
+        }
+        .booking-card {
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+            margin-bottom: 15px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Booking History Test</h1>
+    
+    <div class="form-group">
+        <label for="userId">User ID:</label>
+        <input type="number" id="userId" value="1">
+    </div>
+    
+    <button onclick="getAllBookings()">Get All Bookings</button>
+    <button onclick="getCurrentFutureBookings()">Get Current & Future Bookings</button>
+    <button onclick="getPastBookings()">Get Past Bookings</button>
+    <button onclick="getBookingStats()">Get Booking Stats</button>
+    
+    <div id="response"></div>
+    
+    <script>
+        // Function to create a booking for testing
+        async function createTestBooking() {
+            const userId = document.getElementById('userId').value;
+            
+            const bookingData = {
+                userId: parseInt(userId),
+                carId: 1,
+                startDate: new Date().toISOString().split('T')[0], // Today
+                endDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 3 days from now
+                totalAmount: 150
+            };
+            
+            try {
+                const response = await fetch('/api/bookings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(bookingData)
+                });
+                
+                const data = await response.json();
+                document.getElementById('response').textContent = 'Booking created: ' + JSON.stringify(data, null, 2);
+            } catch (error) {
+                document.getElementById('response').textContent = 'Error creating booking: ' + error.message;
+            }
+        }
+        
+        // Function to get all bookings for a user
+        async function getAllBookings() {
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                const response = await fetch(`/api/users/${userId}/bookings`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const bookings = await response.json();
+                displayBookings(bookings);
+            } catch (error) {
+                document.getElementById('response').textContent = 'Error fetching bookings: ' + error.message;
+            }
+        }
+        
+        // Function to get current and future bookings for a user
+        async function getCurrentFutureBookings() {
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                // For testing without authentication, we'll use a direct endpoint
+                const response = await fetch(`/api/bookings`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const allBookings = await response.json();
+                
+                // Filter bookings for the specified user and current/future dates
+                const today = new Date().toISOString().split('T')[0];
+                const userBookings = allBookings.filter(booking => 
+                    booking.userId == userId && booking.endDate >= today
+                );
+                
+                displayBookings(userBookings);
+            } catch (error) {
+                document.getElementById('response').textContent = 'Error fetching bookings: ' + error.message;
+            }
+        }
+        
+        // Function to get past bookings for a user
+        async function getPastBookings() {
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                // For testing without authentication, we'll use a direct endpoint
+                const response = await fetch(`/api/bookings`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const allBookings = await response.json();
+                
+                // Filter bookings for the specified user and past dates
+                const today = new Date().toISOString().split('T')[0];
+                const userBookings = allBookings.filter(booking => 
+                    booking.userId == userId && booking.endDate < today
+                );
+                
+                displayBookings(userBookings);
+            } catch (error) {
+                document.getElementById('response').textContent = 'Error fetching bookings: ' + error.message;
+            }
+        }
+        
+        // Function to get booking stats for a user
+        async function getBookingStats() {
+            const userId = document.getElementById('userId').value;
+            
+            try {
+                // For testing without authentication, we'll calculate stats from all bookings
+                const response = await fetch(`/api/bookings`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                const allBookings = await response.json();
+                
+                // Filter bookings for the specified user
+                const userBookings = allBookings.filter(booking => booking.userId == userId);
+                
+                // Calculate stats
+                const today = new Date().toISOString().split('T')[0];
+                const activeBookings = userBookings.filter(booking => 
+                    booking.startDate <= today && booking.endDate >= today
+                );
+                const upcomingBookings = userBookings.filter(booking => 
+                    booking.startDate > today
+                );
+                const completedBookings = userBookings.filter(booking => 
+                    booking.endDate < today
+                );
+                
+                const totalSpent = completedBookings.reduce((sum, booking) => sum + booking.totalAmount, 0);
+                
+                const stats = {
+                    totalBookings: userBookings.length,
+                    activeBookings: activeBookings.length,
+                    upcomingBookings: upcomingBookings.length,
+                    completedBookings: completedBookings.length,
+                    totalSpent: totalSpent
+                };
+                
+                document.getElementById('response').innerHTML = '<pre>' + JSON.stringify(stats, null, 2) + '</pre>';
+            } catch (error) {
+                document.getElementById('response').textContent = 'Error fetching booking stats: ' + error.message;
+            }
+        }
+        
+        // Function to display bookings
+        function displayBookings(bookings) {
+            const responseDiv = document.getElementById('response');
+            responseDiv.innerHTML = '';
+            
+            if (bookings.length === 0) {
+                responseDiv.textContent = 'No bookings found.';
+                return;
+            }
+            
+            bookings.forEach(booking => {
+                const bookingCard = document.createElement('div');
+                bookingCard.className = 'booking-card';
+                
+                // Format dates
+                const startDate = new Date(booking.startDate).toLocaleDateString();
+                const endDate = new Date(booking.endDate).toLocaleDateString();
+                
+                // Determine status
+                let status = '';
+                const today = new Date().toISOString().split('T')[0];
+                
+                if (booking.status) {
+                    status = booking.status;
+                } else if (booking.endDate < today) {
+                    status = 'COMPLETED';
+                } else if (booking.startDate > today) {
+                    status = 'UPCOMING';
+                } else {
+                    status = 'ACTIVE';
+                }
+                
+                // Create HTML for the booking card
+                bookingCard.innerHTML = `
+                    <h3>Booking #${booking.id}</h3>
+                    <p><strong>Reference ID:</strong> ${booking.referenceId || 'N/A'}</p>
+                    <p><strong>Status:</strong> ${status}</p>
+                    <p><strong>Dates:</strong> ${startDate} to ${endDate}</p>
+                    <p><strong>Total Amount:</strong> $${booking.totalAmount.toFixed(2)}</p>
+                    <p><strong>Car ID:</strong> ${booking.carId}</p>
+                    <p><strong>User ID:</strong> ${booking.userId}</p>
+                `;
+                
+                responseDiv.appendChild(bookingCard);
+            });
+        }
+    </script>
+    
+    <div style="margin-top: 30px;">
+        <h2>Create Test Booking</h2>
+        <button onclick="createTestBooking()">Create Test Booking</button>
+    </div>
+</body>
+</html>

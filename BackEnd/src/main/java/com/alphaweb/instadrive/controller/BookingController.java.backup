@@ -1,0 +1,228 @@
+package com.alphaweb.instadrive.controller;
+
+import com.alphaweb.instadrive.dto.BookingPaymentDTO;
+import com.alphaweb.instadrive.model.Booking;
+import com.alphaweb.instadrive.model.Payment;
+import com.alphaweb.instadrive.service.BookingService;
+import com.alphaweb.instadrive.service.CarService;
+import com.alphaweb.instadrive.service.PaymentService;
+import com.alphaweb.instadrive.service.UserService;
+import lombok.RequiredArgsConstructor;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+
+@RestController
+@RequestMapping("/api/bookings")
+@RequiredArgsConstructor    
+public class BookingController {
+    private final BookingService bookingService;
+    private final CarService carService;
+    private final UserService userService;
+    private final PaymentService paymentService;
+
+    @GetMapping
+    public List<Booking> getAllBookings() {
+        return bookingService.getAllBookings();
+    }
+
+    @GetMapping("/{id}")
+    public Optional<Booking> getBookingById(@PathVariable Long id) {
+        return bookingService.getBookingById(id);
+    }
+
+    /**
+     * Check if a car is available for the given date range
+     *
+     * @param carId The ID of the car to check
+     * @param startDate The start date of the period to check (format: yyyy-MM-dd)
+     * @param endDate The end date of the period to check (format: yyyy-MM-dd)
+     * @return A response indicating whether the car is available
+     */
+    @GetMapping("/check-availability")
+    public ResponseEntity<Map<String, Object>> checkCarAvailability(
+            @RequestParam Long carId,
+            @RequestParam LocalDate startDate,
+            @RequestParam LocalDate endDate) {
+
+        boolean isAvailable = bookingService.isCarAvailable(carId, startDate, endDate);
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("carId", carId);
+        response.put("startDate", startDate);
+        response.put("endDate", endDate);
+        response.put("available", isAvailable);
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping
+    public ResponseEntity<?> addBooking(@RequestBody Booking booking) {
+        Booking savedBooking = bookingService.addBooking(booking);
+
+        if (savedBooking == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Car is not available for the selected dates");
+            errorResponse.put("carId", booking.getCarId());
+            errorResponse.put("startDate", booking.getStartDate());
+            errorResponse.put("endDate", booking.getEndDate());
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+        // Log the booking ID for debugging
+        System.out.println("Generated booking ID: " + savedBooking.getId());
+        System.out.println("Generated reference ID: " + savedBooking.getReferenceId());
+
+        // Create response with booking information and payment details
+        Map<String, Object> response = new HashMap<>();
+
+        // Basic booking information
+        response.put("booking", savedBooking);
+        response.put("bookingId", savedBooking.getId());
+        response.put("referenceId", savedBooking.getReferenceId());
+        response.put("message", "Booking confirmed with reference ID: " + savedBooking.getReferenceId());
+
+        // Add payment information
+        BookingPaymentDTO paymentInfo = createBookingPaymentInfo(savedBooking);
+        response.put("paymentInfo", paymentInfo);
+
+        // Add payment URLs for direct access
+        response.put("paymentUrls", Map.of(
+            "upi", "/api/payments/booking/" + savedBooking.getId() + "/upi",
+            "card", "/api/payments/booking/" + savedBooking.getId() + "/card",
+            "initiate", "/api/bookings/" + savedBooking.getId() + "/initiate-payment"
+        ));
+
+        return ResponseEntity.ok(response);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateBooking(@PathVariable Long id, @RequestBody Booking booking) {
+        Booking updatedBooking = bookingService.updateBooking(id, booking);
+
+        if (updatedBooking == null) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Car is not available for the selected dates");
+            errorResponse.put("carId", booking.getCarId());
+            errorResponse.put("startDate", booking.getStartDate());
+            errorResponse.put("endDate", booking.getEndDate());
+
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+        return ResponseEntity.ok(updatedBooking);
+    }
+
+    @DeleteMapping("/{id}")
+    public void deleteBooking(@PathVariable Long id) {
+        bookingService.deleteBooking(id);
+    }
+
+    /**
+     * Create booking payment information for a booking
+     *
+     * @param booking The booking
+     * @return BookingPaymentDTO with payment information
+     */
+    private BookingPaymentDTO createBookingPaymentInfo(Booking booking) {
+        BookingPaymentDTO paymentInfo = new BookingPaymentDTO();
+
+        // Set booking information
+        paymentInfo.setBookingId(booking.getId());
+        paymentInfo.setReferenceId(booking.getReferenceId());
+        paymentInfo.setUserId(booking.getUserId());
+        paymentInfo.setCarId(booking.getCarId());
+        paymentInfo.setAmount(booking.getTotalAmount());
+
+        // Set status
+        LocalDate today = LocalDate.now();
+        if (booking.getEndDate().isBefore(today)) {
+            paymentInfo.setStatus("COMPLETED");
+        } else if (booking.getStartDate().isAfter(today)) {
+            paymentInfo.setStatus("UPCOMING");
+        } else {
+            paymentInfo.setStatus("ACTIVE");
+        }
+
+        // Get car information
+        carService.getCarById(booking.getCarId()).ifPresent(car -> {
+            paymentInfo.setCarBrand(car.getBrand());
+            paymentInfo.setCarModel(car.getModel());
+        });
+
+        return paymentInfo;
+    }
+
+    /**
+     * Get booking details by reference ID
+     *
+     * @param referenceId The booking reference ID
+     * @return The booking details
+     */
+    @GetMapping("/reference/{referenceId}")
+    public ResponseEntity<?> getBookingByReferenceId(@PathVariable String referenceId) {
+        List<Booking> allBookings = bookingService.getAllBookings();
+        Optional<Booking> bookingOptional = allBookings.stream()
+                .filter(b -> referenceId.equals(b.getReferenceId()))
+                .findFirst();
+
+        if (bookingOptional.isEmpty()) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Booking not found with reference ID: " + referenceId);
+            return ResponseEntity.status(404).body(errorResponse);
+        }
+
+        Booking booking = bookingOptional.get();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("booking", booking);
+        response.put("referenceId", booking.getReferenceId());
+
+        return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Get payment information for a booking
+     *
+     * @param id The booking ID
+     * @return Payment information for the booking
+     */
+    @GetMapping("/{id}/payment-info")
+    public ResponseEntity<?> getBookingPaymentInfo(@PathVariable Long id) {
+        // Get the booking
+        Optional<Booking> bookingOptional = bookingService.getBookingById(id);
+        if (bookingOptional.isEmpty()) {
+            Map<String, Object> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Booking not found with ID: " + id);
+            return ResponseEntity.badRequest().body(errorResponse);
+        }
+
+        Booking booking = bookingOptional.get();
+
+        // Create payment information
+        BookingPaymentDTO paymentInfo = createBookingPaymentInfo(booking);
+
+        // Get existing payments for this booking
+        List<Payment> payments = paymentService.getPaymentsByBookingId(id);
+
+        // Create response
+        Map<String, Object> response = new HashMap<>();
+        response.put("booking", booking);
+        response.put("bookingId", booking.getId()); // Explicitly include bookingId
+        response.put("paymentInfo", paymentInfo);
+        response.put("existingPayments", payments);
+        response.put("paymentRequired", payments.isEmpty());
+
+        return ResponseEntity.ok(response);
+    }
+
+
+
+
+}
