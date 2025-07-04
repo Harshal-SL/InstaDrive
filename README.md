@@ -222,14 +222,4 @@ This project is licensed under the MIT License. See the source for details.
 
 ---
 
-## 🖼️ Screenshots
-
-> _Add screenshots or GIFs of your app here to showcase the UI and features._
-
-<p align="center">
-  <img src="https://placehold.co/600x350?text=Dashboard+Screenshot" alt="Dashboard Screenshot"/>
-</p>
-
----
-
 **InstaDrive** — Your complete car rental solution! 🚗✨
