@@ -12,10 +12,7 @@
 - [Security Highlights](#-security-highlights)
 - [Responsive & Modern UI](#-responsive--modern-ui)
 - [Production Deployment](#-production-deployment)
-- [Testing & Demo](#-testing--demo)
-- [Contributing](#-contributing)
-- [License](#-license)
-- [Support](#-support)
+
 
 ---
 
@@ -48,7 +45,6 @@
 - **Framework:** Spring Boot 3.x
 - **Database:** MySQL 8+
 - **Security:** JWT, BCrypt
-- **Payment:** Stripe Integration
 - **Build Tool:** Maven
 - **Key Dependencies:**
   - spring-boot-starter-data-jpa, spring-boot-starter-web, spring-boot-starter-security
