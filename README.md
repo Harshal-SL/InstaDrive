@@ -211,15 +211,4 @@ npm run build
 
 ---
 
-## 📄 License
-This project is licensed under the MIT License. See the source for details.
-
----
-
-## 📞 Support
-- Create an issue in the repository
-- Contact the development team
-
----
-
 **InstaDrive** — Your complete car rental solution! 🚗✨
